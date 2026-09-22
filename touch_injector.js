@@ -543,14 +543,48 @@
     if (shieldEl && isTouchEnabled) shieldEl.style.pointerEvents = 'auto';
   }
 
-  // Listen for parent messages (e.g. toggle touch mode, toggle mouse arrow)
+  // Apply emulated device light/dark color scheme
+  function applyColorScheme(scheme) {
+    if (!scheme) return;
+    let style = document.getElementById('phone-sim-color-scheme-override');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'phone-sim-color-scheme-override';
+      const target = document.head || document.documentElement;
+      if (target) target.appendChild(style);
+    }
+    if (style) {
+      style.textContent = `
+        :root {
+          color-scheme: ${scheme} !important;
+        }
+      `;
+    }
+    const root = document.documentElement;
+    if (root) {
+      root.setAttribute('data-theme', scheme);
+      root.setAttribute('data-color-scheme', scheme);
+      root.classList.toggle('dark', scheme === 'dark');
+      root.classList.toggle('light', scheme === 'light');
+    }
+  }
+
+  // Listen for parent messages (e.g. toggle touch mode, toggle mouse arrow, set device light/dark theme)
   window.addEventListener('message', (e) => {
-    if (e.data && e.data.type === 'PHONE_SIM_TOUCH_CONFIG') {
+    if (!e.data) return;
+    if (e.data.type === 'PHONE_SIM_TOUCH_CONFIG') {
       isTouchEnabled = !!e.data.enabled;
       if (typeof e.data.showArrow === 'boolean') {
         showMouseArrow = e.data.showArrow;
       }
       applyTouchAndArrowState();
+      if (e.data.colorScheme) {
+        applyColorScheme(e.data.colorScheme);
+      }
+    } else if (e.data.type === 'PHONE_SIM_THEME_CONFIG') {
+      if (e.data.colorScheme) {
+        applyColorScheme(e.data.colorScheme);
+      }
     }
   });
 

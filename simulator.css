@@ -457,7 +457,7 @@ select option, select optgroup {
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, background-color 0.2s ease, border-color 0.2s ease;
 }
 
-/* Monochrome Chassis Finishes */
+/* Monochrome & Premium Chassis Finishes */
 .device-chassis[data-theme="titanium-dark"] {
   background: #18181c;
   border-color: #2b2b30;
@@ -469,6 +469,78 @@ select option, select optgroup {
 .device-chassis[data-theme="titanium-natural"] {
   background: #3f3f46;
   border-color: #52525b;
+}
+.device-chassis[data-theme="titanium-gold"] {
+  background: #44372e;
+  border-color: #6e594a;
+}
+.device-chassis[data-theme="midnight"] {
+  background: #11151f;
+  border-color: #222b3d;
+}
+.device-chassis[data-theme="pure-white"] {
+  background: #f4f4f5;
+  border-color: #d4d4d8;
+}
+
+/* Metallic Adaptations for Laptop Hinge & Monitor Stand */
+.device-chassis[data-theme="titanium-silver"] .laptop-base-notch {
+  background: linear-gradient(180deg, #d4d4d8, #a1a1aa);
+  border-color: #71717a;
+  border-top-color: #e4e4e7;
+}
+.device-chassis[data-theme="titanium-silver"] .laptop-notch-indent {
+  background: #71717a;
+}
+.device-chassis[data-theme="titanium-silver"] .monitor-stand-neck {
+  background: linear-gradient(90deg, #a1a1aa, #e4e4e7, #a1a1aa);
+  border-color: #71717a;
+}
+.device-chassis[data-theme="titanium-silver"] .monitor-stand-base {
+  background: linear-gradient(180deg, #e4e4e7, #a1a1aa);
+  border-color: #71717a;
+}
+
+.device-chassis[data-theme="titanium-gold"] .laptop-base-notch {
+  background: linear-gradient(180deg, #5c4b3f, #3b3028);
+  border-color: #7d6555;
+  border-top-color: #9c806d;
+}
+.device-chassis[data-theme="titanium-gold"] .monitor-stand-neck {
+  background: linear-gradient(90deg, #3d322b, #6b5749, #3d322b);
+  border-color: #7d6555;
+}
+.device-chassis[data-theme="titanium-gold"] .monitor-stand-base {
+  background: linear-gradient(180deg, #614f42, #3b3028);
+  border-color: #7d6555;
+}
+
+.device-chassis[data-theme="pure-white"] .laptop-base-notch {
+  background: linear-gradient(180deg, #ffffff, #e4e4e7);
+  border-color: #d4d4d8;
+}
+.device-chassis[data-theme="pure-white"] .laptop-notch-indent {
+  background: #a1a1aa;
+}
+.device-chassis[data-theme="pure-white"] .monitor-stand-neck {
+  background: linear-gradient(90deg, #d4d4d8, #ffffff, #d4d4d8);
+  border-color: #a1a1aa;
+}
+.device-chassis[data-theme="pure-white"] .monitor-stand-base {
+  background: linear-gradient(180deg, #ffffff, #d4d4d8);
+  border-color: #a1a1aa;
+}
+
+.col-theme-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.device-col-btn:hover .col-theme-dot {
+  transform: scale(1.2);
 }
 
 .device-bezel {
@@ -707,6 +779,8 @@ select option, select optgroup {
 .dynamic-island {
   position: absolute;
   top: 9px;
+  left: 50%;
+  transform: translateX(-50%);
   width: 110px;
   height: 28px;
   background: #000000;
@@ -738,6 +812,8 @@ select option, select optgroup {
   display: none;
   position: absolute;
   top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
   width: 12px;
   height: 12px;
   background: #000000;
@@ -749,6 +825,8 @@ select option, select optgroup {
   display: none;
   position: absolute;
   top: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: 140px;
   height: 26px;
   background: #000000;
@@ -777,18 +855,227 @@ select option, select optgroup {
 .device-chassis[data-type="iphone-island"] .dynamic-island { display: flex; }
 .device-chassis[data-type="iphone-island"] .android-punch { display: none; }
 .device-chassis[data-type="iphone-island"] .classic-notch { display: none; }
+.device-chassis[data-type="iphone-island"] .laptop-webcam { display: none; }
 
 .device-chassis[data-type="android-punch"] .dynamic-island { display: none; }
 .device-chassis[data-type="android-punch"] .android-punch { display: block; }
 .device-chassis[data-type="android-punch"] .classic-notch { display: none; }
+.device-chassis[data-type="android-punch"] .laptop-webcam { display: none; }
 
 .device-chassis[data-type="iphone-notch"] .dynamic-island { display: none; }
 .device-chassis[data-type="iphone-notch"] .android-punch { display: none; }
 .device-chassis[data-type="iphone-notch"] .classic-notch { display: flex; }
+.device-chassis[data-type="iphone-notch"] .laptop-webcam { display: none; }
 
-.device-chassis[data-type="tablet"] .dynamic-island { display: none; }
-.device-chassis[data-type="tablet"] .android-punch { display: none; }
-.device-chassis[data-type="tablet"] .classic-notch { display: none; }
+.device-chassis[data-type="iphone-classic"] .dynamic-island,
+.device-chassis[data-type="iphone-classic"] .android-punch,
+.device-chassis[data-type="iphone-classic"] .classic-notch,
+.device-chassis[data-type="iphone-classic"] .laptop-webcam { display: none !important; }
+
+/* Tablet Chassis */
+.device-chassis[data-type="tablet"] {
+  --device-radius-outer: 24px;
+  --device-radius-inner: 16px;
+  padding: 10px;
+}
+.device-chassis[data-type="tablet"] .dynamic-island,
+.device-chassis[data-type="tablet"] .android-punch,
+.device-chassis[data-type="tablet"] .classic-notch,
+.device-chassis[data-type="tablet"] .laptop-webcam { display: none !important; }
+.device-chassis[data-type="tablet"] .mobile-browser-footer {
+  display: none !important;
+}
+.device-chassis[data-type="tablet"] .device-status-bar {
+  height: 28px;
+  padding: 0 20px;
+}
+.device-chassis[data-type="tablet"][data-viewmode="browser"] .mobile-browser-header {
+  margin-top: 28px !important;
+}
+.device-chassis[data-type="tablet"][data-viewmode="pwa"] .iframe-container {
+  padding-top: 28px !important;
+}
+
+/* Laptop Chassis */
+.device-chassis[data-type="laptop"] {
+  --device-radius-outer: 14px;
+  --device-radius-inner: 8px;
+  padding: 10px 10px 4px 10px;
+  border-width: 2.5px;
+  background: #18181c;
+  border-color: #2b2b30;
+}
+.device-chassis[data-type="laptop"] .device-cutout-container {
+  display: flex !important;
+  top: 3px;
+}
+.device-chassis[data-type="laptop"] .dynamic-island,
+.device-chassis[data-type="laptop"] .android-punch,
+.device-chassis[data-type="laptop"] .classic-notch {
+  display: none !important;
+}
+.device-chassis[data-type="laptop"] .laptop-webcam {
+  display: flex;
+}
+.device-chassis[data-type="laptop"] .device-status-bar,
+.device-chassis[data-type="laptop"] .device-home-bar,
+.device-chassis[data-type="laptop"] .mobile-browser-footer {
+  display: none !important;
+}
+.device-chassis[data-type="laptop"][data-viewmode="browser"] .mobile-browser-header {
+  margin-top: 0 !important;
+  height: 38px;
+}
+.device-chassis[data-type="laptop"][data-viewmode="pwa"] .iframe-container {
+  padding-top: 0 !important;
+}
+.device-chassis[data-type="laptop"] .desktop-window-controls {
+  display: flex;
+}
+
+/* Laptop Base Notch / Opening Indent */
+.laptop-base-notch {
+  display: none;
+}
+.device-chassis[data-type="laptop"]:not(.is-frameless) .laptop-base-notch {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: calc(100% + 18px);
+  margin-left: -9px;
+  height: 12px;
+  background: linear-gradient(180deg, #24242a, #161619);
+  border: 1px solid #33333a;
+  border-top: 1px solid #44444e;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  position: relative;
+  z-index: 50;
+  margin-top: 3px;
+}
+.laptop-notch-indent {
+  width: 72px;
+  height: 4px;
+  background: #0e0e11;
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+/* Monitor Chassis */
+.device-chassis[data-type="monitor"] {
+  --device-radius-outer: 8px;
+  --device-radius-inner: 4px;
+  padding: 6px;
+  border-width: 2px;
+  background: #18181b;
+  border-color: #27272a;
+  box-shadow: 0 25px 65px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+.device-chassis[data-type="monitor"] .device-cutout-container,
+.device-chassis[data-type="monitor"] .device-status-bar,
+.device-chassis[data-type="monitor"] .device-home-bar,
+.device-chassis[data-type="monitor"] .mobile-browser-footer {
+  display: none !important;
+}
+.device-chassis[data-type="monitor"][data-viewmode="browser"] .mobile-browser-header {
+  margin-top: 0 !important;
+  height: 38px;
+}
+.device-chassis[data-type="monitor"][data-viewmode="pwa"] .iframe-container {
+  padding-top: 0 !important;
+}
+.device-chassis[data-type="monitor"] .desktop-window-controls {
+  display: flex;
+}
+
+/* Monitor Stand */
+.monitor-stand {
+  display: none;
+}
+.device-chassis[data-type="monitor"]:not(.is-frameless) .monitor-stand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 5;
+}
+.monitor-stand-neck {
+  width: 36px;
+  height: 46px;
+  background: linear-gradient(90deg, #1f1f23, #38383e, #1a1a1e);
+  border-left: 1px solid #484852;
+  border-right: 1px solid #484852;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+.monitor-stand-base {
+  width: 140px;
+  height: 10px;
+  background: linear-gradient(180deg, #303036, #1c1c20);
+  border: 1px solid #44444c;
+  border-radius: 4px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.8), 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+/* Desktop Window Controls (macOS style traffic lights) */
+.desktop-window-controls {
+  display: none;
+  align-items: center;
+  gap: 7px;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+.win-btn {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+.win-btn:hover {
+  transform: scale(1.1);
+}
+.win-close {
+  background: #ff5f56;
+  border: 1px solid #e0443e;
+}
+.win-min {
+  background: #ffbd2e;
+  border: 1px solid #dea123;
+}
+.win-max {
+  background: #27c93f;
+  border: 1px solid #1aab29;
+}
+
+/* Laptop Webcam */
+.laptop-webcam {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 7px;
+  height: 7px;
+  background: #09090b;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.9);
+}
+.webcam-dot {
+  width: 3px;
+  height: 3px;
+  background: #1e293b;
+  border-radius: 50%;
+}
 
 /* Status Bar */
 .device-status-bar {
@@ -878,22 +1165,140 @@ select option, select optgroup {
   padding-top: 0 !important;
 }
 
-/* Landscape Mode */
+/* Landscape Mode: Realistic Hardware Cutouts & Navigation on Left Short Edge */
 .device-chassis.is-landscape {
   --device-radius-outer: 40px;
   --device-radius-inner: 32px;
 }
 
+/* In Landscape, hardware camera cutouts sit on the physical left short edge */
+.device-chassis.is-landscape .device-cutout-container {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: auto;
+  width: 44px;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Dynamic Island in Landscape: rotated 90deg vertical pill centered on left edge */
+.device-chassis.is-landscape .dynamic-island {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 110px;
+  border-radius: 18px;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px 0;
+  align-items: center;
+}
+
+.device-chassis.is-landscape .dynamic-island .camera-lens {
+  width: 9px;
+  height: 9px;
+}
+
+.device-chassis.is-landscape .dynamic-island .sensor-dot {
+  width: 6px;
+  height: 6px;
+}
+
+/* Android Punch Hole in Landscape: centered vertically on left edge */
+.device-chassis.is-landscape .android-punch {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+}
+
+/* Classic iPhone Notch in Landscape: pinned to left edge, rounded outward to right */
+.device-chassis.is-landscape .classic-notch {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 140px;
+  border-radius: 0 14px 14px 0;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.device-chassis.is-landscape .classic-notch .speaker-slit {
+  width: 3px;
+  height: 44px;
+}
+
+.device-chassis.is-landscape .classic-notch .notch-camera {
+  width: 8px;
+  height: 8px;
+}
+
+/* Laptop and monitor should keep webcam at top */
+.device-chassis.is-landscape[data-type="laptop"] .device-cutout-container {
+  top: 3px;
+  left: 0;
+  right: 0;
+  bottom: auto;
+  width: 100%;
+  height: auto;
+  flex-direction: row;
+  justify-content: center;
+}
+
+/* Status Bar in Landscape: compact height, padded on left to clear cutout */
 .device-chassis.is-landscape .device-status-bar {
-  padding: 0 32px;
-  height: 34px;
+  padding: 0 24px 0 44px;
+  height: 28px;
 }
 
 .device-chassis.is-landscape[data-viewmode="browser"] .mobile-browser-header {
-  margin-top: 34px !important;
+  margin-top: 28px !important;
+  padding-left: 44px;
+  padding-right: 14px;
 }
+
+.device-chassis.is-landscape .mobile-browser-footer {
+  padding-left: 44px;
+  padding-right: 20px;
+}
+
 .device-chassis.is-landscape[data-viewmode="pwa"] .iframe-container {
-  padding-top: 34px !important;
+  padding-top: 28px !important;
+}
+
+/* Landscape Home Indicator */
+.device-chassis.is-landscape .device-home-bar {
+  height: 16px;
+  bottom: 2px;
+}
+.device-chassis.is-landscape .home-indicator {
+  width: 150px;
+  height: 3.5px;
+}
+
+/* Tablet overrides in landscape */
+.device-chassis.is-landscape[data-type="tablet"] .device-status-bar {
+  padding: 0 20px;
+  height: 28px;
+}
+.device-chassis.is-landscape[data-type="tablet"][data-viewmode="browser"] .mobile-browser-header {
+  margin-top: 28px !important;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.device-chassis.is-landscape[data-type="tablet"] .mobile-browser-footer {
+  padding-left: 14px;
 }
 
 /* Light Mobile Browser Theme Support */
@@ -1008,18 +1413,104 @@ body.is-touch-mode.show-mouse-arrow .phone-iframe {
 }
 
 .modal-card-wide {
-  max-width: 640px;
+  max-width: 720px;
   width: 95%;
+}
+
+.picker-filter-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0 10px 0;
+}
+
+.picker-search-box {
+  display: flex;
+  align-items: center;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 0 12px;
+  gap: 8px;
+  transition: border-color 0.15s ease;
+}
+
+.picker-search-box:focus-within {
+  border-color: #55555e;
+}
+
+.picker-search-box svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.picker-search-box input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 12.5px;
+  padding: 8px 0;
+  outline: none;
+}
+
+.picker-search-box input::placeholder {
+  color: var(--text-muted);
+}
+
+.btn-clear-search {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+}
+
+.btn-clear-search:hover {
+  color: var(--text-primary);
+}
+
+.picker-filter-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.picker-chip {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+}
+
+.picker-chip:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.picker-chip.is-active {
+  background: #ffffff;
+  color: #121214;
+  border-color: #ffffff;
+  font-weight: 600;
 }
 
 .device-picker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 10px;
-  max-height: 440px;
+  max-height: 420px;
   overflow-y: auto;
   padding: 4px;
-  margin-top: 10px;
 }
 
 .device-picker-card {
@@ -1041,12 +1532,29 @@ body.is-touch-mode.show-mouse-arrow .phone-iframe {
   transform: translateY(-1px);
 }
 
+.picker-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
 .picker-card-category {
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-muted);
+}
+
+.picker-card-type-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  text-transform: uppercase;
 }
 
 .picker-card-name {
@@ -1061,7 +1569,24 @@ body.is-touch-mode.show-mouse-arrow .phone-iframe {
 .picker-card-dims {
   font-size: 11px;
   color: var(--text-secondary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.picker-no-results {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.picker-no-results p {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.picker-no-results span {
+  font-size: 12px;
 }
 
 .modal-top {

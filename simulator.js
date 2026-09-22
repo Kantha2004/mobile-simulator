@@ -12,7 +12,14 @@
   let isMouseArrowVisible = localStorage.getItem('phone_sim_show_arrow') !== 'false';
   let currentThemeIndex = 0;
   let currentViewMode = localStorage.getItem('phone_sim_viewmode') || 'browser';
-  const THEMES = ['titanium-dark', 'titanium-silver', 'titanium-natural'];
+  const THEMES = [
+    { id: 'titanium-dark', name: 'Space Black', color: '#18181c', border: '#2b2b30' },
+    { id: 'titanium-silver', name: 'Silver Titanium', color: '#d4d4d8', border: '#a1a1aa' },
+    { id: 'titanium-natural', name: 'Natural Titanium', color: '#3f3f46', border: '#52525b' },
+    { id: 'titanium-gold', name: 'Desert Gold', color: '#44372e', border: '#6e594a' },
+    { id: 'midnight', name: 'Midnight Navy', color: '#11151f', border: '#222b3d' },
+    { id: 'pure-white', name: 'Ceramic White', color: '#f4f4f5', border: '#d4d4d8' }
+  ];
   let currentScaleValue = 1.0;
 
   // --- DOM Elements ---
@@ -65,19 +72,39 @@
   const toastContainer = document.getElementById('toast-container');
 
   // --- Initialize Device Selector Dropdown ---
+  const CATEGORY_ORDER = [
+    'Apple iPhone',
+    'Android Phones',
+    'Tablets',
+    'Laptops',
+    'Monitors & Desktops'
+  ];
+
+  // --- Initialize Device Selector Dropdown ---
   function initDeviceList() {
     const categories = {};
     DEVICE_PRESETS.forEach(dev => {
-      if (!categories[dev.category]) {
-        categories[dev.category] = [];
-      }
-      categories[dev.category].push(dev);
+      const cat = dev.category || 'Other';
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push(dev);
     });
 
     deviceSelect.innerHTML = '';
-    for (const [catName, devices] of Object.entries(categories)) {
+
+    // Sort categories according to CATEGORY_ORDER
+    const sortedCatNames = Object.keys(categories).sort((a, b) => {
+      const idxA = CATEGORY_ORDER.indexOf(a);
+      const idxB = CATEGORY_ORDER.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+
+    sortedCatNames.forEach(catName => {
+      const devices = categories[catName];
       const group = document.createElement('optgroup');
-      group.label = catName;
+      group.label = `${catName} (${devices.length})`;
       devices.forEach(dev => {
         const opt = document.createElement('option');
         opt.value = dev.id;
@@ -86,7 +113,7 @@
         group.appendChild(opt);
       });
       deviceSelect.appendChild(group);
-    }
+    });
 
     // Add Custom option at the end
     const customGroup = document.createElement('optgroup');
@@ -107,23 +134,50 @@
         id: 'slot-1',
         device: found,
         isLandscape: false,
-        isLightBrowser: false
+        isLightBrowser: false,
+        chassisTheme: 'titanium-dark'
       }
     ];
 
     deviceSelect.value = found.id;
   }
 
-  // --- Populate Modal Device Picker Grid ---
-  function initDevicePickerGrid() {
+  // --- Populate Modal Device Picker Grid with Search & Category Filters ---
+  let activePickerCategory = 'all';
+  let activePickerSearch = '';
+
+  function renderDevicePickerGrid() {
     if (!devicePickerGrid) return;
     devicePickerGrid.innerHTML = '';
 
-    DEVICE_PRESETS.forEach(dev => {
+    const query = activePickerSearch.trim().toLowerCase();
+    const filtered = DEVICE_PRESETS.filter(dev => {
+      const matchCat = (activePickerCategory === 'all') || (dev.category === activePickerCategory);
+      if (!matchCat) return false;
+      if (!query) return true;
+      const hay = `${dev.name} ${dev.category} ${dev.os || ''} ${dev.type || ''} ${dev.width}x${dev.height}`.toLowerCase();
+      return hay.includes(query);
+    });
+
+    if (filtered.length === 0) {
+      devicePickerGrid.innerHTML = `
+        <div class="picker-no-results">
+          <p>No matching devices found</p>
+          <span>Try a different search term or category chip.</span>
+        </div>
+      `;
+      return;
+    }
+
+    filtered.forEach(dev => {
       const card = document.createElement('div');
       card.className = 'device-picker-card';
+      const typeLabel = (dev.type || 'phone').replace('iphone-', '').replace('android-', '');
       card.innerHTML = `
-        <span class="picker-card-category">${dev.category}</span>
+        <div class="picker-card-header">
+          <span class="picker-card-category">${dev.category}</span>
+          <span class="picker-card-type-badge">${typeLabel}</span>
+        </div>
         <span class="picker-card-name">${dev.name}</span>
         <span class="picker-card-dims">${dev.width} × ${dev.height} px · DPR ${dev.dpr || 1}x</span>
       `;
@@ -135,13 +189,52 @@
     });
   }
 
+  function initDevicePickerGrid() {
+    renderDevicePickerGrid();
+
+    const searchInput = document.getElementById('picker-search-input');
+    const clearBtn = document.getElementById('btn-clear-picker-search');
+    const chipContainer = document.getElementById('picker-filter-chips');
+
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        activePickerSearch = e.target.value;
+        if (clearBtn) clearBtn.style.display = activePickerSearch ? 'block' : 'none';
+        renderDevicePickerGrid();
+      });
+    }
+
+    if (clearBtn && searchInput) {
+      clearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        activePickerSearch = '';
+        clearBtn.style.display = 'none';
+        renderDevicePickerGrid();
+        searchInput.focus();
+      });
+    }
+
+    if (chipContainer) {
+      chipContainer.addEventListener('click', (e) => {
+        const chip = e.target.closest('.picker-chip');
+        if (!chip) return;
+        chipContainer.querySelectorAll('.picker-chip').forEach(c => c.classList.remove('is-active'));
+        chip.classList.add('is-active');
+        activePickerCategory = chip.dataset.cat || 'all';
+        renderDevicePickerGrid();
+      });
+    }
+  }
+
   // --- Multi-Device: Add New Device Slot Side-by-Side ---
   function addDevice(preset) {
+    const prevSlot = activeDevices.length > 0 ? activeDevices[activeDevices.length - 1] : null;
     const newSlot = {
       id: 'slot-' + Date.now() + Math.random().toString(36).substr(2, 4),
       device: preset,
       isLandscape: isLandscape,
-      isLightBrowser: false
+      isLightBrowser: prevSlot ? prevSlot.isLightBrowser : false,
+      chassisTheme: prevSlot ? prevSlot.chassisTheme : 'titanium-dark'
     };
     activeDevices.push(newSlot);
     renderAllDevices();
@@ -159,9 +252,20 @@
     }
   }
 
+  // Helper: Theme SVG Icon (Sun for Light mode, Moon for Dark mode)
+  function getThemeIconSvg(isLight) {
+    if (isLight) {
+      return '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>';
+    }
+    return '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>';
+  }
+
   // --- Create DOM Element for Single Device Slot ---
   function createDeviceSlotElement(slotData) {
-    const { id, device, isLandscape: slotLandscape, isLightBrowser } = slotData;
+    const { id, device, isLandscape: slotLandscape, isLightBrowser, chassisTheme: slotChassisTheme } = slotData;
+    const isLight = !!isLightBrowser;
+    const currentTheme = slotChassisTheme || (isLight ? 'titanium-silver' : 'titanium-dark');
+    const currentThemeObj = THEMES.find(t => t.id === currentTheme) || THEMES[0];
     const w = slotLandscape ? device.height : device.width;
     const h = slotLandscape ? device.width : device.height;
 
@@ -183,9 +287,22 @@
       <div class="device-column-header">
         <div class="device-col-info">
           <span class="device-col-name">${device.name}</span>
-          <span class="device-col-dims">${w} × ${h}</span>
+          <span class="device-col-dims">${w} &times; ${h}</span>
         </div>
         <div class="device-col-actions">
+          <!-- Per-Device Light / Dark Theme Mode Toggle -->
+          <button class="device-col-btn btn-col-theme-toggle" title="${isLight ? 'Theme: Light (Click for Dark Theme)' : 'Theme: Dark (Click for Light Theme)'}">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              ${getThemeIconSvg(isLight)}
+            </svg>
+          </button>
+
+          <!-- Per-Device Chassis Bezel Finish Swatch -->
+          <button class="device-col-btn btn-col-chassis-finish" title="Bezel Finish: ${currentThemeObj.name} (Click to switch)">
+            <span class="col-theme-dot" style="background-color: ${currentThemeObj.color}; border: 1.5px solid ${currentThemeObj.border};"></span>
+          </button>
+
+          <!-- Rotate Device -->
           <button class="device-col-btn btn-col-rotate" title="Rotate Device (${slotLandscape ? 'Landscape' : 'Portrait'})">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
@@ -195,6 +312,8 @@
               <rect x="8.5" y="6.5" width="7" height="11" rx="1.5"/>
             </svg>
           </button>
+
+          <!-- Remove Device -->
           <button class="device-col-btn btn-col-remove" title="Remove Device" style="${activeDevices.length > 1 ? '' : 'display:none;'}">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M18 6 6 18"/>
@@ -205,9 +324,9 @@
       </div>
 
       <div class="device-viewport-scaler">
-        <div class="device-chassis ${slotLandscape ? 'is-landscape' : ''} ${!isBezelVisible ? 'is-frameless' : ''} ${isLightBrowser ? 'is-light-browser' : ''}"
+        <div class="device-chassis ${slotLandscape ? 'is-landscape' : ''} ${!isBezelVisible ? 'is-frameless' : ''} ${isLight ? 'is-light-browser' : ''}"
              data-type="${device.type || 'iphone-island'}"
-             data-theme="${THEMES[currentThemeIndex]}"
+             data-theme="${currentTheme}"
              data-viewmode="${currentViewMode}">
           <div class="device-bezel">
             <!-- Cutout -->
@@ -222,6 +341,9 @@
               <div class="classic-notch">
                 <span class="speaker-slit"></span>
                 <span class="notch-camera"></span>
+              </div>
+              <div class="laptop-webcam">
+                <span class="webcam-dot"></span>
               </div>
             </div>
 
@@ -254,8 +376,15 @@
 
             <!-- Screen Frame -->
             <div class="screen-wrapper" style="width: ${w}px; height: ${h}px;">
-              <!-- Mobile Browser Header -->
+              <!-- Browser Header -->
               <div class="mobile-browser-header">
+                <!-- Desktop Window Controls (Visible on Laptop & Monitor) -->
+                <div class="desktop-window-controls">
+                  <span class="win-btn win-close" title="Close"></span>
+                  <span class="win-btn win-min" title="Minimize"></span>
+                  <span class="win-btn win-max" title="Maximize"></span>
+                </div>
+
                 <div class="mb-address-capsule">
                   <svg class="mb-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
@@ -273,11 +402,9 @@
                 </div>
                 <div class="mb-top-actions">
                   <span class="mb-tabs-badge">1</span>
-                  <button class="mb-btn mb-menu-btn mb-btn-theme-toggle" title="Toggle Light/Dark Mobile Browser Chrome">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="1"/>
-                      <circle cx="12" cy="5" r="1"/>
-                      <circle cx="12" cy="19" r="1"/>
+                  <button class="mb-btn mb-btn-theme-toggle" title="${isLight ? 'Switch to Dark Theme' : 'Switch to Light Theme'}">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      ${getThemeIconSvg(isLight)}
                     </svg>
                   </button>
                 </div>
@@ -312,6 +439,17 @@
             <!-- Home Bar -->
             <div class="device-home-bar"><div class="home-indicator"></div></div>
           </div>
+
+          <!-- Laptop Base Hinge / Notch -->
+          <div class="laptop-base-notch">
+            <div class="laptop-notch-indent"></div>
+          </div>
+
+          <!-- Monitor Stand -->
+          <div class="monitor-stand">
+            <div class="monitor-stand-neck"></div>
+            <div class="monitor-stand-base"></div>
+          </div>
         </div>
       </div>
     `;
@@ -329,15 +467,120 @@
       removeDevice(id);
     });
 
-    const btnThemeToggle = slot.querySelector('.mb-btn-theme-toggle');
-    if (btnThemeToggle) {
-      btnThemeToggle.addEventListener('click', () => {
-        slotData.isLightBrowser = !slotData.isLightBrowser;
-        const chassis = slot.querySelector('.device-chassis');
-        if (chassis) chassis.classList.toggle('is-light-browser', slotData.isLightBrowser);
-        showToast(`${device.name}: ${slotData.isLightBrowser ? 'Light Chrome' : 'Dark Chrome'}`);
-      });
+    // Helper: Toggle Device Light/Dark Theme Mode
+    function toggleSlotTheme() {
+      slotData.isLightBrowser = !slotData.isLightBrowser;
+      const isNowLight = slotData.isLightBrowser;
+      const chassis = slot.querySelector('.device-chassis');
+      const iframeEl = slot.querySelector('.phone-iframe');
+
+      if (chassis) {
+        chassis.classList.toggle('is-light-browser', isNowLight);
+        if (isNowLight && (!slotData.chassisTheme || slotData.chassisTheme === 'titanium-dark')) {
+          slotData.chassisTheme = 'titanium-silver';
+          chassis.setAttribute('data-theme', 'titanium-silver');
+        } else if (!isNowLight && (!slotData.chassisTheme || slotData.chassisTheme === 'titanium-silver')) {
+          slotData.chassisTheme = 'titanium-dark';
+          chassis.setAttribute('data-theme', 'titanium-dark');
+        }
+      }
+
+      // Update finish dot
+      const dot = slot.querySelector('.col-theme-dot');
+      const curObj = THEMES.find(t => t.id === slotData.chassisTheme) || THEMES[0];
+      if (dot && curObj) {
+        dot.style.backgroundColor = curObj.color;
+        dot.style.borderColor = curObj.border;
+      }
+      const finishBtn = slot.querySelector('.btn-col-chassis-finish');
+      if (finishBtn && curObj) {
+        finishBtn.title = `Bezel Finish: ${curObj.name} (Click to switch)`;
+      }
+
+      // Update toggle button icon & tooltip
+      const toggleBtn = slot.querySelector('.btn-col-theme-toggle');
+      if (toggleBtn) {
+        toggleBtn.title = isNowLight ? 'Theme: Light (Click to switch to Dark)' : 'Theme: Dark (Click to switch to Light)';
+        toggleBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            ${getThemeIconSvg(isNowLight)}
+          </svg>
+        `;
+      }
+
+      const mbThemeBtn = slot.querySelector('.mb-btn-theme-toggle');
+      if (mbThemeBtn) {
+        mbThemeBtn.title = isNowLight ? 'Switch to Dark Theme' : 'Switch to Light Theme';
+        mbThemeBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            ${getThemeIconSvg(isNowLight)}
+          </svg>
+        `;
+      }
+
+      // Send to iframe
+      const scheme = isNowLight ? 'light' : 'dark';
+      if (iframeEl) {
+        try {
+          iframeEl.contentWindow.postMessage({
+            type: 'PHONE_SIM_THEME_CONFIG',
+            colorScheme: scheme
+          }, '*');
+        } catch (e) {}
+
+        try {
+          const doc = iframeEl.contentDocument || iframeEl.contentWindow.document;
+          if (doc) {
+            let style = doc.getElementById('phone-sim-color-scheme-override');
+            if (!style) {
+              style = doc.createElement('style');
+              style.id = 'phone-sim-color-scheme-override';
+              (doc.head || doc.documentElement).appendChild(style);
+            }
+            style.textContent = `:root { color-scheme: ${scheme} !important; }`;
+            doc.documentElement.classList.toggle('dark', !isNowLight);
+            doc.documentElement.classList.toggle('light', isNowLight);
+            doc.documentElement.setAttribute('data-theme', scheme);
+            doc.documentElement.setAttribute('data-color-scheme', scheme);
+          }
+        } catch (e) {}
+      }
+
+      showToast(`${device.name}: ${isNowLight ? 'Light Theme' : 'Dark Theme'}`);
     }
+
+    // Helper: Cycle Bezel Finish for this device
+    function cycleSlotChassis() {
+      const curIdx = THEMES.findIndex(t => t.id === slotData.chassisTheme);
+      const nextIdx = (curIdx + 1) % THEMES.length;
+      const nextTheme = THEMES[nextIdx];
+      slotData.chassisTheme = nextTheme.id;
+
+      const chassis = slot.querySelector('.device-chassis');
+      if (chassis) {
+        chassis.setAttribute('data-theme', nextTheme.id);
+      }
+
+      const dot = slot.querySelector('.col-theme-dot');
+      if (dot) {
+        dot.style.backgroundColor = nextTheme.color;
+        dot.style.borderColor = nextTheme.border;
+      }
+      const finishBtn = slot.querySelector('.btn-col-chassis-finish');
+      if (finishBtn) {
+        finishBtn.title = `Bezel Finish: ${nextTheme.name} (Click to switch)`;
+      }
+      showToast(`${device.name}: ${nextTheme.name} finish`);
+    }
+
+    const btnThemeToggle = slot.querySelector('.btn-col-theme-toggle');
+    if (btnThemeToggle) btnThemeToggle.addEventListener('click', toggleSlotTheme);
+
+    const mbBtnThemeToggle = slot.querySelector('.mb-btn-theme-toggle');
+    if (mbBtnThemeToggle) mbBtnThemeToggle.addEventListener('click', toggleSlotTheme);
+
+    const btnChassisFinish = slot.querySelector('.btn-col-chassis-finish');
+    if (btnChassisFinish) btnChassisFinish.addEventListener('click', cycleSlotChassis);
 
     const inReload = slot.querySelector('.mb-btn-reload');
     if (inReload) {
@@ -370,27 +613,44 @@
 
     if (iframe) {
       iframe.addEventListener('load', () => {
+        const isLight = !!slotData.isLightBrowser;
+        const scheme = isLight ? 'light' : 'dark';
         try {
           iframe.contentWindow.postMessage({
             type: 'PHONE_SIM_TOUCH_CONFIG',
             enabled: isTouchMode,
-            showArrow: isMouseArrowVisible
+            showArrow: isMouseArrowVisible,
+            colorScheme: scheme
           }, '*');
         } catch (e) {}
 
-        // Fallback mobile scrollbar injection for same-origin pages
+        // Fallback mobile scrollbar injection & color-scheme for same-origin pages
         try {
           const doc = iframe.contentDocument || iframe.contentWindow.document;
-          if (doc && !doc.getElementById('phone-sim-mobile-scrollbar-style')) {
-            const style = doc.createElement('style');
-            style.id = 'phone-sim-mobile-scrollbar-style';
-            style.textContent = `
-              html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0px !important; height: 0px !important; display: none !important; }
-              html, body { -ms-overflow-style: none !important; scrollbar-width: none !important; }
-              *::-webkit-scrollbar { width: 3.5px !important; height: 3.5px !important; background-color: transparent !important; }
-              *::-webkit-scrollbar-thumb { background-color: rgba(120, 120, 128, 0.45) !important; border-radius: 9999px !important; }
-            `;
-            (doc.head || doc.documentElement).appendChild(style);
+          if (doc) {
+            if (!doc.getElementById('phone-sim-mobile-scrollbar-style')) {
+              const style = doc.createElement('style');
+              style.id = 'phone-sim-mobile-scrollbar-style';
+              style.textContent = `
+                html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0px !important; height: 0px !important; display: none !important; }
+                html, body { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+                *::-webkit-scrollbar { width: 3.5px !important; height: 3.5px !important; background-color: transparent !important; }
+                *::-webkit-scrollbar-thumb { background-color: rgba(120, 120, 128, 0.45) !important; border-radius: 9999px !important; }
+              `;
+              (doc.head || doc.documentElement).appendChild(style);
+            }
+
+            let themeStyle = doc.getElementById('phone-sim-color-scheme-override');
+            if (!themeStyle) {
+              themeStyle = doc.createElement('style');
+              themeStyle.id = 'phone-sim-color-scheme-override';
+              (doc.head || doc.documentElement).appendChild(themeStyle);
+            }
+            themeStyle.textContent = `:root { color-scheme: ${scheme} !important; }`;
+            doc.documentElement.classList.toggle('dark', !isLight);
+            doc.documentElement.classList.toggle('light', isLight);
+            doc.documentElement.setAttribute('data-theme', scheme);
+            doc.documentElement.setAttribute('data-color-scheme', scheme);
           }
         } catch (e) {}
       });
@@ -469,11 +729,17 @@
     const deviceDims = activeDevices.map(slot => {
       const w = slot.isLandscape ? slot.device.height : slot.device.width;
       const h = slot.isLandscape ? slot.device.width : slot.device.height;
-      const chassisW = w + extra;
-      const chassisH = h + extra;
+      const isMonitor = slot.device.type === 'monitor';
+      const isLaptop = slot.device.type === 'laptop';
+      const extraX = isBezelVisible ? (isMonitor ? 16 : (isLaptop ? 24 : 26)) : 0;
+      const extraY = isBezelVisible ? (isMonitor ? 74 : (isLaptop ? 32 : 26)) : 0;
+      const chassisW = w + extraX;
+      const chassisH = h + extraY;
+      const frameW = isBezelVisible ? (isMonitor ? w + 16 : (isLaptop ? w + 24 : chassisW)) : w;
+      const frameH = isBezelVisible ? (isMonitor ? h + 16 : (isLaptop ? h + 24 : chassisH)) : h;
       sumChassisW += chassisW;
       if (chassisH > maxChassisH) maxChassisH = chassisH;
-      return { w, h, chassisW, chassisH };
+      return { w, h, chassisW, chassisH, frameW, frameH };
     });
 
     const totalGaps = gap * (activeDevices.length - 1);
@@ -529,8 +795,8 @@
         scaler.style.height = `${scaledH}px`;
       }
       if (chassis) {
-        chassis.style.width = `${dims.chassisW}px`;
-        chassis.style.height = `${dims.chassisH}px`;
+        chassis.style.width = `${dims.frameW}px`;
+        chassis.style.height = `${dims.frameH}px`;
         chassis.style.transform = `scale(${targetScale.toFixed(4)})`;
       }
       if (colHeader) {
@@ -611,11 +877,21 @@
   function cycleTheme() {
     currentThemeIndex = (currentThemeIndex + 1) % THEMES.length;
     const theme = THEMES[currentThemeIndex];
-    document.querySelectorAll('.device-chassis').forEach(c => {
-      c.setAttribute('data-theme', theme);
+    activeDevices.forEach(slotData => {
+      slotData.chassisTheme = theme.id;
     });
-    const label = theme.replace('titanium-', '').toUpperCase();
-    showToast(`Bezel finish: ${label}`);
+    document.querySelectorAll('.device-chassis').forEach(c => {
+      c.setAttribute('data-theme', theme.id);
+    });
+    document.querySelectorAll('.btn-col-chassis-finish').forEach(btn => {
+      const dot = btn.querySelector('.col-theme-dot');
+      if (dot) {
+        dot.style.backgroundColor = theme.color;
+        dot.style.borderColor = theme.border;
+      }
+      btn.title = `Bezel Finish: ${theme.name} (Click to switch)`;
+    });
+    showToast(`All devices: ${theme.name} bezel`);
   }
 
   // --- View Mode: Browser vs PWA vs Fullscreen ---
@@ -877,14 +1153,16 @@
     // Custom Device Form Submit
     customDeviceForm.addEventListener('submit', (e) => {
       e.preventDefault();
+      const customTypeSelect = document.getElementById('custom-type');
+      const customWidth = parseInt(customWidthInput.value, 10) || 390;
       const customDev = {
         id: 'custom-' + Date.now(),
         name: customNameInput.value.trim() || 'Custom Viewport',
         category: 'Custom',
-        width: parseInt(customWidthInput.value, 10) || 390,
+        width: customWidth,
         height: parseInt(customHeightInput.value, 10) || 844,
         dpr: parseFloat(customDprSelect.value) || 2.0,
-        type: 'android-punch',
+        type: customTypeSelect ? customTypeSelect.value : (customWidth > 1200 ? 'monitor' : (customWidth > 900 ? 'laptop' : (customWidth > 700 ? 'tablet' : 'android-punch'))),
         os: 'Custom'
       };
 

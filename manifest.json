@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Mobile & Phone Simulator - Responsive Tester",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Test websites on realistic mobile & tablet devices with interactive mockups, orientation switcher, and touch cursor.",
   "permissions": [
     "declarativeNetRequest",
