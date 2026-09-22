@@ -9,6 +9,7 @@
   let currentScale = 'fit';
   let isBezelVisible = true;
   let isTouchMode = true;
+  let isMouseArrowVisible = localStorage.getItem('phone_sim_show_arrow') !== 'false';
   let currentThemeIndex = 0;
   let currentViewMode = localStorage.getItem('phone_sim_viewmode') || 'browser';
   const THEMES = ['titanium-dark', 'titanium-silver', 'titanium-natural'];
@@ -26,6 +27,7 @@
   const scaleSelect = document.getElementById('scale-select');
   const btnToggleFrame = document.getElementById('btn-toggle-frame');
   const btnTouchMode = document.getElementById('btn-touch-mode');
+  const btnMouseArrow = document.getElementById('btn-mouse-arrow');
   const btnTheme = document.getElementById('btn-theme');
   const btnScreenshot = document.getElementById('btn-screenshot');
   const btnQr = document.getElementById('btn-qr');
@@ -371,8 +373,25 @@
         try {
           iframe.contentWindow.postMessage({
             type: 'PHONE_SIM_TOUCH_CONFIG',
-            enabled: isTouchMode
+            enabled: isTouchMode,
+            showArrow: isMouseArrowVisible
           }, '*');
+        } catch (e) {}
+
+        // Fallback mobile scrollbar injection for same-origin pages
+        try {
+          const doc = iframe.contentDocument || iframe.contentWindow.document;
+          if (doc && !doc.getElementById('phone-sim-mobile-scrollbar-style')) {
+            const style = doc.createElement('style');
+            style.id = 'phone-sim-mobile-scrollbar-style';
+            style.textContent = `
+              html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0px !important; height: 0px !important; display: none !important; }
+              html, body { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+              *::-webkit-scrollbar { width: 3.5px !important; height: 3.5px !important; background-color: transparent !important; }
+              *::-webkit-scrollbar-thumb { background-color: rgba(120, 120, 128, 0.45) !important; border-radius: 9999px !important; }
+            `;
+            (doc.head || doc.documentElement).appendChild(style);
+          }
         } catch (e) {}
       });
     }
@@ -438,9 +457,13 @@
 
     const extra = isBezelVisible ? 26 : 0;
     const gap = 36;
+    const headerHeight = 44; // device-column-header (30px min-height + 12px margin + 2px border)
+    const stagePaddingX = 48; // 24px * 2
+    const stagePaddingY = 48; // 24px * 2
+    const safetyMargin = 32;  // breathing room so devices never touch edges
 
     // Calculate layout bounds needed across all devices
-    let totalChassisW = 0;
+    let sumChassisW = 0;
     let maxChassisH = 0;
 
     const deviceDims = activeDevices.map(slot => {
@@ -448,28 +471,40 @@
       const h = slot.isLandscape ? slot.device.width : slot.device.height;
       const chassisW = w + extra;
       const chassisH = h + extra;
-      totalChassisW += chassisW;
+      sumChassisW += chassisW;
       if (chassisH > maxChassisH) maxChassisH = chassisH;
       return { w, h, chassisW, chassisH };
     });
 
-    totalChassisW += gap * (activeDevices.length - 1);
+    const totalGaps = gap * (activeDevices.length - 1);
 
     let targetScale = 1.0;
-    if (currentScale === 'fit') {
-      const stageW = Math.max(100, stageContainer.clientWidth - 56);
-      const stageH = Math.max(100, stageContainer.clientHeight - 100);
+    const containerW = stageContainer.clientWidth || window.innerWidth;
+    const containerH = stageContainer.clientHeight || window.innerHeight;
 
-      const scaleX = stageW / totalChassisW;
-      const scaleY = stageH / maxChassisH;
+    if (currentScale === 'fit') {
+      const availW = Math.max(100, containerW - stagePaddingX - totalGaps - safetyMargin);
+      const availH = Math.max(100, containerH - stagePaddingY - headerHeight - safetyMargin);
+
+      const scaleX = availW / sumChassisW;
+      const scaleY = availH / maxChassisH;
       targetScale = Math.min(scaleX, scaleY, 1.0);
       if (targetScale < 0.15) targetScale = 0.15;
 
-      // In fit mode, reset scroll so devices stay strictly in bounds
+      stageContainer.classList.add('is-fit-mode');
+      stageContainer.style.justifyContent = 'center';
       stageContainer.scrollTop = 0;
       stageContainer.scrollLeft = 0;
     } else {
       targetScale = parseFloat(currentScale) || 1.0;
+      stageContainer.classList.remove('is-fit-mode');
+
+      const totalRenderedW = sumChassisW * targetScale + totalGaps + stagePaddingX;
+      if (totalRenderedW > containerW) {
+        stageContainer.style.justifyContent = 'flex-start';
+      } else {
+        stageContainer.style.justifyContent = 'center';
+      }
     }
 
     currentScaleValue = targetScale;
@@ -487,6 +522,8 @@
       const chassis = slot.querySelector('.device-chassis');
       const colHeader = slot.querySelector('.device-column-header');
 
+      slot.style.width = `${scaledW}px`;
+
       if (scaler) {
         scaler.style.width = `${scaledW}px`;
         scaler.style.height = `${scaledH}px`;
@@ -497,7 +534,7 @@
         chassis.style.transform = `scale(${targetScale.toFixed(4)})`;
       }
       if (colHeader) {
-        colHeader.style.width = `${Math.max(200, scaledW)}px`;
+        colHeader.style.width = `${scaledW}px`;
       }
     });
 
@@ -532,7 +569,8 @@
         if (iframe.contentWindow) {
           iframe.contentWindow.postMessage({
             type: 'PHONE_SIM_TOUCH_CONFIG',
-            enabled: isTouchMode
+            enabled: isTouchMode,
+            showArrow: isMouseArrowVisible
           }, '*');
         }
       } catch (e) {}
@@ -543,12 +581,29 @@
     isTouchMode = !isTouchMode;
     if (isTouchMode) {
       btnTouchMode.classList.add('is-active');
-      showToast('Touch simulation: ON (drag-to-scroll enabled)');
+      document.body.classList.add('is-touch-mode');
+      showToast('Touch simulation: ON');
     } else {
       btnTouchMode.classList.remove('is-active');
+      document.body.classList.remove('is-touch-mode');
       document.querySelectorAll('.touch-cursor').forEach(c => { c.style.display = 'none'; });
       showToast('Touch simulation: OFF (desktop mouse pointer)');
     }
+    sendTouchConfigToIframe();
+  }
+
+  function toggleMouseArrow() {
+    isMouseArrowVisible = !isMouseArrowVisible;
+    if (isMouseArrowVisible) {
+      if (btnMouseArrow) btnMouseArrow.classList.add('is-active');
+      document.body.classList.add('show-mouse-arrow');
+      showToast('Mouse pointer: ON (arrow on touch ball)');
+    } else {
+      if (btnMouseArrow) btnMouseArrow.classList.remove('is-active');
+      document.body.classList.remove('show-mouse-arrow');
+      showToast('Mouse pointer: OFF (touch ball only)');
+    }
+    localStorage.setItem('phone_sim_show_arrow', isMouseArrowVisible ? 'true' : 'false');
     sendTouchConfigToIframe();
   }
 
@@ -738,6 +793,11 @@
     // Touch toggle
     btnTouchMode.addEventListener('click', toggleTouchMode);
 
+    // Mouse Arrow toggle on touch ball
+    if (btnMouseArrow) {
+      btnMouseArrow.addEventListener('click', toggleMouseArrow);
+    }
+
     // Bezel Theme
     btnTheme.addEventListener('click', cycleTheme);
 
@@ -872,6 +932,16 @@
     initDevicePickerGrid();
     setupEventListeners();
     setViewMode(currentViewMode);
+    if (isTouchMode) {
+      document.body.classList.add('is-touch-mode');
+    }
+    if (isMouseArrowVisible) {
+      document.body.classList.add('show-mouse-arrow');
+      if (btnMouseArrow) btnMouseArrow.classList.add('is-active');
+    } else {
+      document.body.classList.remove('show-mouse-arrow');
+      if (btnMouseArrow) btnMouseArrow.classList.remove('is-active');
+    }
 
     // Initial render of devices
     renderAllDevices();

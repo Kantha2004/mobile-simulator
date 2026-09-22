@@ -51,6 +51,30 @@ body {
   border: 0;
 }
 
+/* Sleek Minimalist Scrollbars across Simulator UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-corner {
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.32);
+}
+
 /* ==========================================================================
    Single Unified Modern Topbar (White & Dark-Grey)
    ========================================================================== */
@@ -313,10 +337,16 @@ select option, select optgroup {
   overflow: auto;
   display: flex;
   align-items: center;
-  padding: 32px 28px;
+  justify-content: center;
+  padding: 24px;
   background-color: var(--bg-canvas);
   position: relative;
   gap: 36px;
+  box-sizing: border-box;
+}
+
+.stage-container.is-fit-mode {
+  overflow: hidden !important;
 }
 
 .device-slot {
@@ -324,7 +354,6 @@ select option, select optgroup {
   flex-direction: column;
   align-items: center;
   flex-shrink: 0;
-  margin: auto;
   position: relative;
 }
 
@@ -349,21 +378,27 @@ select option, select optgroup {
   display: flex;
   align-items: center;
   gap: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
 }
 
 .device-col-name {
   font-weight: 600;
   color: var(--text-primary);
   font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
 }
 
 .device-col-dims {
   font-size: 10.5px;
   color: var(--text-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .device-col-actions {
@@ -452,15 +487,15 @@ select option, select optgroup {
 }
 
 .iframe-container {
-  flex: 1;
+  flex: 1 1 0%;
+  min-height: 0;
   position: relative;
   width: 100%;
-  height: 100%;
   overflow: hidden;
   background: #ffffff;
 }
 
-#phone-iframe {
+.phone-iframe, #phone-iframe {
   width: 100%;
   height: 100%;
   border: none;
@@ -839,6 +874,9 @@ select option, select optgroup {
 .device-chassis.is-frameless[data-viewmode="browser"] .mobile-browser-header {
   margin-top: 0 !important;
 }
+.device-chassis.is-frameless[data-viewmode="pwa"] .iframe-container {
+  padding-top: 0 !important;
+}
 
 /* Landscape Mode */
 .device-chassis.is-landscape {
@@ -853,6 +891,9 @@ select option, select optgroup {
 
 .device-chassis.is-landscape[data-viewmode="browser"] .mobile-browser-header {
   margin-top: 34px !important;
+}
+.device-chassis.is-landscape[data-viewmode="pwa"] .iframe-container {
+  padding-top: 34px !important;
 }
 
 /* Light Mobile Browser Theme Support */
@@ -900,7 +941,7 @@ select option, select optgroup {
   background: rgba(0, 0, 0, 0.06) !important;
 }
 
-/* Touch Cursor (Clean White / Monochrome) */
+/* Touch Cursor (Translucent White Touch Ball) */
 .touch-cursor {
   position: absolute;
   width: 26px;
@@ -913,13 +954,26 @@ select option, select optgroup {
   transform: translate(-50%, -50%);
   display: none;
   z-index: 999;
-  transition: width 0.08s ease, height 0.08s ease, background 0.08s ease;
+  transition: width 0.08s ease, height 0.08s ease, background-color 0.08s ease;
 }
 
 .touch-cursor.is-pressing {
   width: 20px;
   height: 20px;
   background: rgba(255, 255, 255, 0.5);
+}
+
+/* Mouse Arrow Pointer handling in Touch Mode */
+body.is-touch-mode:not(.show-mouse-arrow) .screen-wrapper,
+body.is-touch-mode:not(.show-mouse-arrow) .iframe-container,
+body.is-touch-mode:not(.show-mouse-arrow) .phone-iframe {
+  cursor: none !important;
+}
+
+body.is-touch-mode.show-mouse-arrow .screen-wrapper,
+body.is-touch-mode.show-mouse-arrow .iframe-container,
+body.is-touch-mode.show-mouse-arrow .phone-iframe {
+  cursor: default !important;
 }
 
 /* ==========================================================================
