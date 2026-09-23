@@ -1,3 +1,5 @@
+@import '../../utils/devtools.css';
+
 /* simulator.css - Minimalist White & Dark-Grey Monochrome Theme */
 
 :root {
@@ -1766,3 +1768,40 @@ body.is-touch-mode.show-mouse-arrow .phone-iframe {
   from { opacity: 1; }
   to { opacity: 0; }
 }
+
+/* --- Docked Chrome DevTools Container --- */
+.devtools-dock-container {
+  height: 350px;
+  min-height: 140px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  background: #202124;
+  border-top: 1px solid #3c4043;
+  position: relative;
+  z-index: 1000;
+  flex-shrink: 0;
+}
+
+.devtools-resizer {
+  height: 6px;
+  width: 100%;
+  cursor: ns-resize;
+  background: transparent;
+  position: absolute;
+  top: -3px;
+  left: 0;
+  z-index: 1001;
+  transition: background 0.15s;
+}
+
+.devtools-resizer:hover, .devtools-resizer.is-dragging {
+  background: #8ab4f8;
+}
+
+.devtools-dock-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}
+

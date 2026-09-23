@@ -53,6 +53,12 @@ export default defineBackground(() => {
         title: '📱 Open link in Phone Simulator',
         contexts: ['link'],
       });
+
+      chrome.contextMenus.create({
+        id: 'open-simulator-settings',
+        title: '⚙️ Phone Simulator Settings',
+        contexts: ['action'],
+      });
     } catch (e) {
       console.error('[Phone Simulator] Context menu error:', e);
     }
@@ -63,7 +69,7 @@ export default defineBackground(() => {
   });
 
   // When user clicks the extension action icon in the toolbar
-  chrome.action.onClicked.addListener(async (tab) => {
+  chrome.action.onClicked.addListener(async (tab: chrome.tabs.Tab) => {
     let targetUrl = 'https://en.wikipedia.org';
     if (tab && tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
       targetUrl = tab.url;
@@ -73,7 +79,16 @@ export default defineBackground(() => {
   });
 
   // Handle context menu clicks
-  chrome.contextMenus.onClicked.addListener((info, tab) => {
+  chrome.contextMenus.onClicked.addListener((info: chrome.contextMenus.OnClickData, tab?: chrome.tabs.Tab) => {
+    if (info.menuItemId === 'open-simulator-settings') {
+      if (chrome.runtime.openOptionsPage) {
+        chrome.runtime.openOptionsPage();
+      } else {
+        chrome.tabs.create({ url: chrome.runtime.getURL('options.html') });
+      }
+      return;
+    }
+
     let targetUrl = 'https://en.wikipedia.org';
     if (info.menuItemId === 'open-link-simulator' && info.linkUrl) {
       targetUrl = info.linkUrl;
@@ -89,10 +104,28 @@ export default defineBackground(() => {
   // Message listener for tab captures or commands
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'capture_tab') {
-      chrome.tabs.captureVisibleTab(null as any, { format: 'png' }, (dataUrl) => {
+      chrome.tabs.captureVisibleTab({ format: 'png' }, (dataUrl) => {
         sendResponse({ dataUrl, error: chrome.runtime.lastError?.message });
       });
       return true; // Keep channel open for async response
+    }
+
+    if (message.action === 'open_devtools_window') {
+      const { url, width, height, slotIndex, isDevToolsPage } = message;
+      const targetUrl = isDevToolsPage
+        ? chrome.runtime.getURL(`devtools.html?slot=${slotIndex || 0}`)
+        : (url || 'https://en.wikipedia.org');
+      const popupW = isDevToolsPage ? 980 : Math.min(1920, Math.max(320, Math.round(width || 390)));
+      const popupH = isDevToolsPage ? 640 : Math.min(1200, Math.max(480, Math.round(height || 844)));
+      chrome.windows.create({
+        url: targetUrl,
+        width: popupW,
+        height: popupH,
+        type: 'popup',
+        focused: true
+      });
+      sendResponse({ success: true });
+      return true;
     }
   });
 });

@@ -24,6 +24,10 @@ export default defineConfig({
     side_panel: {
       default_path: 'simulator.html',
     },
+    options_ui: {
+      page: 'options.html',
+      open_in_tab: true,
+    },
     icons: {
       '16': 'icons/icon16.png',
       '48': 'icons/icon48.png',

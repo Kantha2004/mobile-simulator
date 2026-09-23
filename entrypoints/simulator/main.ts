@@ -3,9 +3,8 @@
 import './style.css';
 import { DEVICE_PRESETS, type DevicePreset } from '../../utils/devices';
 import { generateQRCodeSVG } from '../../utils/qr';
-
-
-  declare const chrome: any;
+import { getSettings } from '../../utils/settings';
+import { ChromeDevToolsUI } from '../../utils/devtools-ui';
 
   interface ActiveDeviceSlot {
     id: string;
@@ -51,6 +50,182 @@ import { generateQRCodeSVG } from '../../utils/qr';
   const btnScreenshot = document.getElementById('btn-screenshot') as HTMLElement | null;
   const btnQr = document.getElementById('btn-qr') as HTMLElement | null;
   const btnCustomDevice = document.getElementById('btn-custom-device') as HTMLElement | null;
+  const btnSettings = document.getElementById('btn-settings') as HTMLElement | null;
+  const btnToggleDevtools = document.getElementById('btn-toggle-devtools') as HTMLElement | null;
+
+  // --- Chrome DevTools State ---
+  let devToolsUI: ChromeDevToolsUI | null = null;
+  let isDevToolsDockOpen = false;
+  let activeDevToolsSlotIndex = 0;
+  const devtoolsChannel = new BroadcastChannel('phone_sim_devtools');
+
+  function initDevToolsDock() {
+    const dockContainer = document.getElementById('devtools-dock-container');
+    const dockBody = document.getElementById('devtools-dock-body');
+    const resizer = document.getElementById('devtools-resizer');
+    const btnToggle = document.getElementById('btn-toggle-devtools');
+
+    if (!dockContainer || !dockBody || devToolsUI) return;
+
+    devToolsUI = new ChromeDevToolsUI(dockBody, {
+      isPopup: false,
+      onClose: () => {
+        closeDevToolsDock();
+      },
+      onUndock: () => {
+        openDevToolsPopup(activeDevToolsSlotIndex);
+        closeDevToolsDock();
+      },
+      sendCommandToDevice: (slotIndex, command) => {
+        sendDevToolsCommandToSlot(slotIndex, command);
+      },
+      getActiveDevices: () => {
+        return activeDevices.map((d, i) => {
+          const slotEl = stageContainer ? stageContainer.querySelectorAll('.device-column')[i] : null;
+          const iframe = slotEl ? (slotEl.querySelector('.phone-iframe') as HTMLIFrameElement | null) : null;
+          return { index: i, name: d.device.name, url: iframe?.src || urlInput?.value || 'https://en.wikipedia.org' };
+        });
+      }
+    });
+
+    if (resizer) {
+      let isDragging = false;
+      let startY = 0;
+      let startH = 350;
+
+      resizer.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startY = e.clientY;
+        startH = dockContainer.getBoundingClientRect().height;
+        resizer.classList.add('is-dragging');
+        document.body.style.cursor = 'ns-resize';
+        e.preventDefault();
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const delta = startY - e.clientY;
+        const newH = Math.min(window.innerHeight * 0.85, Math.max(140, startH + delta));
+        dockContainer.style.height = `${newH}px`;
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (isDragging) {
+          isDragging = false;
+          resizer.classList.remove('is-dragging');
+          document.body.style.cursor = '';
+        }
+      });
+    }
+
+    btnToggle?.addEventListener('click', () => {
+      toggleDevToolsDock();
+    });
+  }
+
+  function toggleDevToolsDock(slotIndex?: number) {
+    const dockContainer = document.getElementById('devtools-dock-container');
+    const btnToggle = document.getElementById('btn-toggle-devtools');
+    if (!dockContainer) return;
+
+    if (typeof slotIndex === 'number') {
+      activeDevToolsSlotIndex = slotIndex;
+    }
+
+    isDevToolsDockOpen = !isDevToolsDockOpen;
+    dockContainer.style.display = isDevToolsDockOpen ? 'flex' : 'none';
+    btnToggle?.classList.toggle('is-active', isDevToolsDockOpen);
+
+    if (isDevToolsDockOpen) {
+      if (!devToolsUI) initDevToolsDock();
+      devToolsUI?.setActiveDevice(activeDevToolsSlotIndex);
+      updateDevToolsDevices();
+    }
+  }
+
+  function closeDevToolsDock() {
+    const dockContainer = document.getElementById('devtools-dock-container');
+    const btnToggle = document.getElementById('btn-toggle-devtools');
+    if (!dockContainer) return;
+    isDevToolsDockOpen = false;
+    dockContainer.style.display = 'none';
+    btnToggle?.classList.remove('is-active');
+  }
+
+  function openDevToolsPopup(slotIndex: number) {
+    const url = chrome.runtime.getURL(`devtools.html?slot=${slotIndex}`);
+    if (typeof chrome !== 'undefined' && chrome.windows && chrome.windows.create) {
+      chrome.windows.create({
+        url,
+        width: 960,
+        height: 640,
+        type: 'popup',
+        focused: true
+      });
+    } else {
+      window.open(url, '_blank', 'width=960,height=640');
+    }
+  }
+
+  function sendDevToolsCommandToSlot(slotIndex: number, command: any) {
+    const colElements = stageContainer?.querySelectorAll('.device-column');
+    if (colElements && colElements[slotIndex]) {
+      const iframe = colElements[slotIndex].querySelector<HTMLIFrameElement>('.phone-iframe');
+      try {
+        iframe?.contentWindow?.postMessage({
+          type: 'PHONE_SIM_DEVTOOLS_COMMAND',
+          command
+        }, '*');
+      } catch (e) {}
+    }
+  }
+
+  function updateDevToolsDevices() {
+    const devicesList = activeDevices.map((d, i) => {
+      const slotEl = stageContainer ? stageContainer.querySelectorAll('.device-column')[i] : null;
+      const iframe = slotEl ? (slotEl.querySelector('.phone-iframe') as HTMLIFrameElement | null) : null;
+      return { index: i, name: d.device.name, url: iframe?.src || urlInput?.value || 'https://en.wikipedia.org' };
+    });
+
+    devtoolsChannel.postMessage({
+      type: 'SIM_DEVICE_LIST_UPDATE',
+      devices: devicesList
+    });
+  }
+
+  // Listen for iframe devtools events
+  window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'PHONE_SIM_DEVTOOLS_EVENT') {
+      let senderSlotIndex = 0;
+      const colElements = stageContainer ? stageContainer.querySelectorAll('.device-column') : [];
+      colElements.forEach((col, idx) => {
+        const ifr = col.querySelector('.phone-iframe') as HTMLIFrameElement | null;
+        if (ifr?.contentWindow === e.source) {
+          senderSlotIndex = idx;
+        }
+      });
+
+      if (isDevToolsDockOpen && devToolsUI) {
+        devToolsUI.handleDeviceEvent(senderSlotIndex, e.data);
+      }
+
+      devtoolsChannel.postMessage({
+        type: 'SIM_TO_DEVTOOLS_EVENT',
+        slotIndex: senderSlotIndex,
+        event: e.data
+      });
+    }
+  });
+
+  // Listen for popup window devtools commands
+  devtoolsChannel.onmessage = (e) => {
+    if (!e.data) return;
+    if (e.data.type === 'DEVTOOLS_TO_SIM_COMMAND') {
+      sendDevToolsCommandToSlot(e.data.slotIndex, e.data.command);
+    } else if (e.data.type === 'DEVTOOLS_READY_REQUEST_DEVICES') {
+      updateDevToolsDevices();
+    }
+  };
 
   const navBack = document.getElementById('btn-back') as HTMLElement | null;
   const navForward = document.getElementById('btn-forward') as HTMLElement | null;
@@ -250,6 +425,7 @@ import { generateQRCodeSVG } from '../../utils/qr';
     };
     activeDevices.push(newSlot);
     renderAllDevices();
+    updateDevToolsDevices();
     showToast(`Added ${preset.name} side-by-side!`);
   }
 
@@ -259,6 +435,7 @@ import { generateQRCodeSVG } from '../../utils/qr';
     const removed = activeDevices.find(s => s.id === slotId);
     activeDevices = activeDevices.filter(s => s.id !== slotId);
     renderAllDevices();
+    updateDevToolsDevices();
     if (removed) {
       showToast(`Removed ${removed.device.name}`);
     }
@@ -273,7 +450,7 @@ import { generateQRCodeSVG } from '../../utils/qr';
   }
 
   // --- Create DOM Element for Single Device Slot ---
-  function createDeviceSlotElement(slotData: ActiveDeviceSlot) {
+  function createDeviceSlotElement(slotData: ActiveDeviceSlot, slotIndex: number) {
     const { id, device, isLandscape: slotLandscape, isLightBrowser, chassisTheme: slotChassisTheme } = slotData;
     const isLight = !!isLightBrowser;
     const currentTheme = slotChassisTheme || (isLight ? 'titanium-silver' : 'titanium-dark');
@@ -312,6 +489,23 @@ import { generateQRCodeSVG } from '../../utils/qr';
           <!-- Per-Device Chassis Bezel Finish Swatch -->
           <button class="device-col-btn btn-col-chassis-finish" title="Bezel Finish: ${currentThemeObj.name} (Click to switch)">
             <span class="col-theme-dot" style="background-color: ${currentThemeObj.color}; border: 1.5px solid ${currentThemeObj.border};"></span>
+          </button>
+
+          <!-- Per-Device DevTools: Toggle In-Frame Console/Elements -->
+          <button class="device-col-btn btn-col-devtools" title="Toggle Mobile DevTools (Console, Elements, Network)">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6"/>
+              <polyline points="8 6 2 12 8 18"/>
+            </svg>
+          </button>
+
+          <!-- Inspect in External Native DevTools Window -->
+          <button class="device-col-btn btn-col-inspect-window" title="Inspect in Native Chrome DevTools Window (F12)">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
           </button>
 
           <!-- Rotate Device -->
@@ -414,6 +608,12 @@ import { generateQRCodeSVG } from '../../utils/qr';
                 </div>
                 <div class="mb-top-actions">
                   <span class="mb-tabs-badge">1</span>
+                  <button class="mb-btn mb-btn-devtools" title="Toggle In-Device Mobile DevTools">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="16 18 22 12 16 6"/>
+                      <polyline points="8 6 2 12 8 18"/>
+                    </svg>
+                  </button>
                   <button class="mb-btn mb-btn-theme-toggle" title="${isLight ? 'Switch to Dark Theme' : 'Switch to Light Theme'}">
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       ${getThemeIconSvg(isLight)}
@@ -594,6 +794,26 @@ import { generateQRCodeSVG } from '../../utils/qr';
     const btnChassisFinish = slot.querySelector<HTMLElement>('.btn-col-chassis-finish');
     if (btnChassisFinish) btnChassisFinish.addEventListener('click', cycleSlotChassis);
 
+    // Chrome DevTools Toggle (Docked Container)
+    const btnDevtools = slot.querySelector<HTMLElement>('.btn-col-devtools');
+    const mbBtnDevtools = slot.querySelector<HTMLElement>('.mb-btn-devtools');
+    function toggleSlotDevtools() {
+      toggleDevToolsDock(slotIndex);
+      showToast(`${device.name}: Inspected in Chrome DevTools`);
+    }
+    if (btnDevtools) btnDevtools.addEventListener('click', toggleSlotDevtools);
+    if (mbBtnDevtools) mbBtnDevtools.addEventListener('click', toggleSlotDevtools);
+
+    // Chrome DevTools in Dedicated Popup Window
+    const btnInspectWindow = slot.querySelector<HTMLElement>('.btn-col-inspect-window');
+    if (btnInspectWindow) {
+      btnInspectWindow.title = "Open Chrome DevTools in Dedicated Popup Window";
+      btnInspectWindow.addEventListener('click', () => {
+        openDevToolsPopup(slotIndex);
+        showToast(`Opened ${device.name} in Dedicated Chrome DevTools Popup!`);
+      });
+    }
+
     const inReload = slot.querySelector<HTMLElement>('.mb-btn-reload');
     if (inReload) {
       inReload.addEventListener('click', () => {
@@ -691,8 +911,8 @@ import { generateQRCodeSVG } from '../../utils/qr';
   // --- Render All Active Device Slots in Canvas ---
   function renderAllDevices() {
     if (stageContainer) stageContainer.innerHTML = '';
-    activeDevices.forEach(slotData => {
-      const slotEl = createDeviceSlotElement(slotData);
+    activeDevices.forEach((slotData, idx) => {
+      const slotEl = createDeviceSlotElement(slotData, idx);
       if (stageContainer) stageContainer.appendChild(slotEl);
     });
 
@@ -800,9 +1020,9 @@ import { generateQRCodeSVG } from '../../utils/qr';
       const scaledW = Math.round(dims.chassisW * targetScale);
       const scaledH = Math.round(dims.chassisH * targetScale);
 
-      const scaler = slot.querySelector<HTMLElement>('.device-viewport-scaler');
-      const chassis = slot.querySelector<HTMLElement>('.device-chassis');
-      const colHeader = slot.querySelector<HTMLElement>('.device-column-header');
+      const scaler = slot.querySelector('.device-viewport-scaler') as HTMLElement | null;
+      const chassis = slot.querySelector('.device-chassis') as HTMLElement | null;
+      const colHeader = slot.querySelector('.device-column-header') as HTMLElement | null;
 
       slot.style.width = `${scaledW}px`;
 
@@ -1110,6 +1330,15 @@ import { generateQRCodeSVG } from '../../utils/qr';
       modalCustom?.classList.add('is-open');
     });
 
+    // Settings Page trigger
+    btnSettings?.addEventListener('click', () => {
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.openOptionsPage) {
+        chrome.runtime.openOptionsPage();
+      } else {
+        window.open('options.html', '_blank');
+      }
+    });
+
     // Navigation Buttons
     navReload?.addEventListener('click', () => {
       document.querySelectorAll<HTMLIFrameElement>('.phone-iframe').forEach(iframe => {
@@ -1229,6 +1458,9 @@ import { generateQRCodeSVG } from '../../utils/qr';
       } else if (e.altKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         toggleBezel();
+      } else if (e.altKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        toggleDevToolsDock();
       } else if (e.key === 'Escape') {
         document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('is-open'));
       }
@@ -1236,10 +1468,59 @@ import { generateQRCodeSVG } from '../../utils/qr';
   }
 
   // --- Initial Launch ---
-  function init() {
+  async function init() {
+    try {
+      const userSettings = await getSettings();
+      // Merge custom presets from settings
+      if (userSettings.customPresets && userSettings.customPresets.length > 0) {
+        userSettings.customPresets.forEach(cp => {
+          if (!DEVICE_PRESETS.some(d => d.id === cp.id)) {
+            DEVICE_PRESETS.push({
+              id: cp.id,
+              name: cp.name,
+              category: 'Custom',
+              width: cp.width,
+              height: cp.height,
+              dpr: cp.dpr,
+              type: cp.type as any,
+              os: 'Custom'
+            });
+          }
+        });
+      }
+
+      // Check if user set custom defaults
+      if (!localStorage.getItem('phone_sim_device') && userSettings.defaultDevice) {
+        const found = DEVICE_PRESETS.find(d => d.id === userSettings.defaultDevice);
+        if (found && activeDevices.length > 0) {
+          activeDevices[0].device = found;
+        }
+      }
+      if (!localStorage.getItem('phone_sim_viewmode') && userSettings.defaultViewMode) {
+        currentViewMode = userSettings.defaultViewMode;
+      }
+      if (userSettings.defaultOrientation === 'landscape') {
+        isLandscape = true;
+        if (activeDevices.length > 0) activeDevices[0].isLandscape = true;
+      }
+      if (userSettings.defaultScale && scaleSelect) {
+        currentScale = userSettings.defaultScale;
+        scaleSelect.value = currentScale;
+      }
+      if (!userSettings.showBezel) {
+        isBezelVisible = false;
+        btnToggleFrame?.classList.remove('is-active');
+      }
+      if (!userSettings.touchSimulation) {
+        isTouchMode = false;
+        btnTouchMode?.classList.remove('is-active');
+      }
+    } catch (e) {}
+
     initDeviceList();
     initDevicePickerGrid();
     setupEventListeners();
+    initDevToolsDock();
     setViewMode(currentViewMode);
     if (isTouchMode) {
       document.body.classList.add('is-touch-mode');
@@ -1258,7 +1539,13 @@ import { generateQRCodeSVG } from '../../utils/qr';
     // Check URL parameters (e.g. ?url=https://example.com)
     const params = new URLSearchParams(window.location.search);
     const paramUrl = params.get('url');
-    const initialUrl = paramUrl || localStorage.getItem('phone_sim_last_url') || 'https://en.wikipedia.org';
+    let defaultStartUrl = 'https://en.wikipedia.org';
+    try {
+      const s = await getSettings();
+      if (s.defaultUrl) defaultStartUrl = s.defaultUrl;
+    } catch (e) {}
+
+    const initialUrl = paramUrl || localStorage.getItem('phone_sim_last_url') || defaultStartUrl;
     navigateTo(initialUrl);
 
     // Start clock
